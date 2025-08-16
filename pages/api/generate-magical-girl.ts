@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { generateWithAI, GenerationConfig } from "../../lib/ai";
-import appConfig from "../../lib/config";
+import { aiConfig } from "../../lib/ai-config";
 import { MainColor } from "../../lib/main-color";
 import { getLogger } from "../../lib/logger";
 
@@ -45,8 +45,8 @@ export type AIGeneratedMagicalGirl = z.infer<
 
 // 魔法少女生成配置
 const magicalGirlGenerationConfig: GenerationConfig<AIGeneratedMagicalGirl, string> = {
-  systemPrompt: appConfig.MAGICAL_GIRL_GENERATION.systemPrompt,
-  temperature: appConfig.MAGICAL_GIRL_GENERATION.temperature,
+  systemPrompt: aiConfig.MAGICAL_GIRL_GENERATION.systemPrompt,
+  temperature: aiConfig.MAGICAL_GIRL_GENERATION.temperature,
   promptBuilder: (realName: string) => `请为名叫"${realName}"的人设计一个魔法少女角色。真实姓名：${realName}`,
   schema: MagicalGirlGenerationSchema,
   taskName: "生成魔法少女",

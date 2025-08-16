@@ -2,7 +2,7 @@
 
 import { type NextRequest } from 'next/server';
 import { queryFromD1 } from '../../lib/d1';
-import appConfig from '../../lib/config'; // 导入应用配置
+import { aiConfig } from '../../lib/ai-config'; // 导入AI配置
 
 export const config = {
   runtime: 'edge',
@@ -65,7 +65,7 @@ export default async function handler(
   try {
     // --- 新增：根据配置生成 SQL 筛选条件 ---
     // 从配置中读取排行榜模式
-    const leaderboardMode = appConfig.LEADERBOARD_MODE;
+    const leaderboardMode = aiConfig.LEADERBOARD_MODE;
     let filterClause = '';
     // is_preset 在数据库中是布尔值 (0 or 1)
     if (leaderboardMode === 'preset') {

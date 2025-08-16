@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Preset } from './api/get-presets'; // 统一使用 Preset 类型
 import { StatsData } from './api/get-stats';
 import Leaderboard from '../components/Leaderboard';
-import appConfig from '../lib/config';
+import { aiConfig } from '../lib/ai-config';
 
 // 魔法少女设定核心字段（用于验证）
 const MAGICAL_GIRL_CORE_FIELDS = {
@@ -114,7 +114,7 @@ const BattlePage: React.FC = () => {
         const fetchData = async () => {
             try {
                 // 根据配置决定是否需要获取统计数据
-                const shouldFetchStats = appConfig.SHOW_STAT_DATA;
+                const shouldFetchStats = aiConfig.SHOW_STAT_DATA;
 
                 // 构建请求数组
                 const requests = [fetch('/api/get-presets')];
@@ -702,7 +702,7 @@ const BattlePage: React.FC = () => {
                         )}
 
                         {/* 新增：故事方向引导输入框 */}
-                        {appConfig.ENABLE_ARENA_USER_GUIDANCE && (
+                        {aiConfig.ENABLE_ARENA_USER_GUIDANCE && (
                             <div className="input-group">
                                 <label htmlFor="user-guidance" className="input-label">故事方向引导 (可选)</label>
                                 <input
@@ -742,7 +742,7 @@ const BattlePage: React.FC = () => {
                     )}
 
                     {/* --- 统计数据 --- */}
-                    {appConfig.SHOW_STAT_DATA && (
+                    {aiConfig.SHOW_STAT_DATA && (
                         <>
                             {isLoadingStats ? (
                                 <div className="card mt-6 text-center text-gray-500">正在加载数据中心...</div>
