@@ -1,4 +1,4 @@
-const { executeQuery, executeTransaction, generateUUID } = require('../database');
+import { executeQuery, executeTransaction, generateUUID } from '../database';
 
 class BattleService {
   // 创建战斗记录

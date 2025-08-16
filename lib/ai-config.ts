@@ -113,11 +113,11 @@ export function selectAIProvider(strategy: string = 'random'): AIProvider | null
     case 'round_robin':
       // 轮询选择
       let currentIndex = 0;
-      return () => {
+      return (() => {
         const provider = providers[currentIndex];
         currentIndex = (currentIndex + 1) % providers.length;
         return provider;
-      }();
+      })();
       
     case 'random':
     default:

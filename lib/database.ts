@@ -96,17 +96,17 @@ async function initializePool(): Promise<void> {
     pool = mysql.createPool(dbConfig);
 
     // 设置连接池事件监听
-    pool.on('connection', (connection) => {
+    pool.on('connection', () => {
       logger.debug('新的数据库连接已创建');
       poolStats.totalConnections++;
     });
 
-    pool.on('acquire', (connection) => {
+    pool.on('acquire', () => {
       poolStats.activeConnections++;
       poolStats.idleConnections = Math.max(0, poolStats.idleConnections - 1);
     });
 
-    pool.on('release', (connection) => {
+    pool.on('release', () => {
       poolStats.activeConnections = Math.max(0, poolStats.activeConnections - 1);
       poolStats.idleConnections++;
     });

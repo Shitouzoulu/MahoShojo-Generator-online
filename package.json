@@ -25,6 +25,7 @@
         "test:db-simple": "node scripts/simple-test.js",
             "deploy:aliyun": "bash scripts/deploy-aliyun.sh",
     "deploy:aliyun:simple": "bash scripts/deploy-aliyun-simple.sh",
+    "deploy:aliyun:simple:ps": "powershell -ExecutionPolicy Bypass -File scripts/deploy-aliyun-simple.ps1",
     "deploy:workbench": "bash scripts/deploy-workbench.sh",
     "deploy:git": "bash scripts/deploy-git.sh",
     "deploy:build": "npm run build && npm run build:server",

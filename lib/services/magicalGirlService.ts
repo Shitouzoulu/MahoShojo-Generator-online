@@ -1,4 +1,4 @@
-const { executeQuery, executeTransaction, generateUUID } = require('../database');
+import { executeQuery, generateUUID } from '../database';
 
 class MagicalGirlService {
   // 创建魔法少女
