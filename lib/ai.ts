@@ -293,3 +293,86 @@ export async function generateBattleStory(input: GenerateBattleStoryInput): Prom
 
   return generateWithAI<BattleStory, GenerateBattleStoryInput>(input, generationConfig);
 }
+
+// ---------------- Canshou generation (server usage) ----------------
+
+export const SimpleCanshouSchema = z.object({
+  name: z.string(),
+  stage: z.string(),
+  description: z.string(),
+  appearance: z.object({
+    body: z.string(),
+    skin: z.string().optional(),
+    features: z.string().optional(),
+  }),
+});
+
+export interface GenerateCanshouInput {
+  stage: string;
+  description: string;
+  userPreferences?: any;
+}
+
+export type SimpleCanshou = z.infer<typeof SimpleCanshouSchema>;
+
+export async function generateCanshou(input: GenerateCanshouInput): Promise<SimpleCanshou> {
+  const generationConfig: GenerationConfig<SimpleCanshou, GenerateCanshouInput> = {
+    taskName: '生成残兽',
+    systemPrompt:
+      '你是一名魔法国度的残兽研究学者，请基于阶段与描述生成一个具有鲜明核心概念的残兽。' +
+      '严格返回 JSON，包含 name, stage, description, appearance{ body, skin?, features? }。',
+    temperature: 0.85,
+    maxTokens: 1500,
+    schema: SimpleCanshouSchema,
+    promptBuilder: ({ stage, description, userPreferences }) => {
+      const prefs = userPreferences ? `\n【用户偏好】\n${JSON.stringify(userPreferences, null, 2)}` : '';
+      return `\n【残兽阶段】${stage}\n【描述】${description}${prefs}\n` +
+        '确保外观描述具有画面感，便于后续立绘生成。只返回 JSON。';
+    },
+  };
+
+  return generateWithAI<SimpleCanshou, GenerateCanshouInput>(input, generationConfig);
+}
+
+// ---------------- Magical Girl generation (server usage) ----------------
+
+export const SimpleMagicalGirlSchema = z.object({
+  name: z.string(),
+  flowerName: z.string(),
+  appearance: z.object({
+    hairColor: z.string(),
+    eyeColor: z.string(),
+    wearing: z.string(),
+  }),
+  spell: z.string(),
+  mainColor: z.string(),
+  firstPageColor: z.string(),
+  secondPageColor: z.string(),
+});
+
+export interface GenerateMagicalGirlInput {
+  flowerName: string;
+  mainColor: string;
+  userPreferences?: any;
+}
+
+export type SimpleMagicalGirl = z.infer<typeof SimpleMagicalGirlSchema>;
+
+export async function generateMagicalGirl(input: GenerateMagicalGirlInput): Promise<SimpleMagicalGirl> {
+  const generationConfig: GenerationConfig<SimpleMagicalGirl, GenerateMagicalGirlInput> = {
+    taskName: '生成魔法少女',
+    systemPrompt:
+      '你是一名魔法少女角色设计师，请基于花名与主色调生成角色。' +
+      '严格返回 JSON，包含 name, flowerName, appearance{ hairColor, eyeColor, wearing }, spell, mainColor, firstPageColor, secondPageColor。',
+    temperature: 0.8,
+    maxTokens: 1800,
+    schema: SimpleMagicalGirlSchema,
+    promptBuilder: ({ flowerName, mainColor, userPreferences }) => {
+      const prefs = userPreferences ? `\n【用户偏好】\n${JSON.stringify(userPreferences, null, 2)}` : '';
+      return `\n【花名】${flowerName}\n【主色调】${mainColor}${prefs}\n` +
+        '注意名字不应包含“魔法少女”字样；颜色搭配与咒语需统一风格。只返回 JSON。';
+    },
+  };
+
+  return generateWithAI<SimpleMagicalGirl, GenerateMagicalGirlInput>(input, generationConfig);
+}
