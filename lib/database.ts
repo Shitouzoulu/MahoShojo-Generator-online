@@ -415,9 +415,40 @@ async function initDatabase() {
   }
 }
 
+// 生成UUID
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// 执行事务
+async function executeTransaction<T>(
+  transactionFn: (connection: mysql.Connection) => Promise<T>
+): Promise<T> {
+  const connection = await getConnection();
+  const conn = await connection.getConnection();
+  
+  try {
+    await conn.beginTransaction();
+    const result = await transactionFn(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+}
+
 export {
   getConnection,
   executeQuery,
+  executeTransaction,
+  generateUUID,
   getPoolStatus,
   healthCheck,
   closePool,
