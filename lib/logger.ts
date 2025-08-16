@@ -45,114 +45,63 @@ const logger = createLogger();
 // 创建带有文件名的日志实例
 export const getLogger = (fileName: string) => ({
   info: (msg: string, ...args: any[]) => {
-    const logData = { caller: fileName };
+    const logData: any = { caller: fileName };
     
     if (args.length > 0) {
       const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
-        // 如果是对象，合并到logData中
         Object.assign(logData, firstArg);
-        // 传递剩余参数
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.info(logData, msg, ...remainingArgs);
-        } else {
-          logger.info(logData, msg);
-        }
       } else {
-        // 如果不是对象，作为data字段
         logData.data = firstArg;
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.info(logData, msg, ...remainingArgs);
-        } else {
-          logger.info(logData, msg);
-        }
       }
-    } else {
-      logger.info(logData, msg);
     }
+    
+    logger.info(logData, msg);
   },
 
   error: (msg: string, ...args: any[]) => {
-    const logData = { caller: fileName };
+    const logData: any = { caller: fileName };
     
     if (args.length > 0) {
       const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
         Object.assign(logData, firstArg);
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.error(logData, msg, ...remainingArgs);
-        } else {
-          logger.error(logData, msg);
-        }
       } else {
         logData.data = firstArg;
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.error(logData, msg, ...remainingArgs);
-        } else {
-          logger.error(logData, msg);
-        }
       }
-    } else {
-      logger.error(logData, msg);
     }
+    
+    logger.error(logData, msg);
   },
 
   warn: (msg: string, ...args: any[]) => {
-    const logData = { caller: fileName };
+    const logData: any = { caller: fileName };
     
     if (args.length > 0) {
       const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
         Object.assign(logData, firstArg);
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.warn(logData, msg, ...remainingArgs);
-        } else {
-          logger.warn(logData, msg);
-        }
       } else {
         logData.data = firstArg;
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.warn(logData, msg, ...remainingArgs);
-        } else {
-          logger.warn(logData, msg);
-        }
       }
-    } else {
-      logger.warn(logData, msg);
     }
+    
+    logger.warn(logData, msg);
   },
 
   debug: (msg: string, ...args: any[]) => {
-    const logData = { caller: fileName };
+    const logData: any = { caller: fileName };
     
     if (args.length > 0) {
       const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
         Object.assign(logData, firstArg);
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.debug(logData, msg, ...remainingArgs);
-        } else {
-          logger.debug(logData, msg);
-        }
       } else {
         logData.data = firstArg;
-        if (args.length > 1) {
-          const remainingArgs = args.slice(1);
-          logger.debug(logData, msg, ...remainingArgs);
-        } else {
-          logger.debug(logData, msg);
-        }
       }
-    } else {
-      logger.debug(logData, msg);
     }
+    
+    logger.debug(logData, msg);
   }
 });
 
