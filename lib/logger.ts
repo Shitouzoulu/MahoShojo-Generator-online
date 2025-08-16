@@ -49,9 +49,9 @@ export const getLogger = (fileName: string) => ({
       // 如果有额外参数，将它们合并到对象中
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.info({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        logger.info({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
       } else {
-        logger.info({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logger.info({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
       }
     } else {
       logger.info({ caller: fileName }, msg);
@@ -61,9 +61,9 @@ export const getLogger = (fileName: string) => ({
     if (args.length > 0) {
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.error({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        logger.error({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
       } else {
-        logger.error({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logger.error({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
       }
     } else {
       logger.error({ caller: fileName }, msg);
@@ -73,9 +73,9 @@ export const getLogger = (fileName: string) => ({
     if (args.length > 0) {
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.warn({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        logger.warn({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
       } else {
-        logger.warn({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logger.warn({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
       }
     } else {
       logger.warn({ caller: fileName }, msg);
@@ -85,9 +85,9 @@ export const getLogger = (fileName: string) => ({
     if (args.length > 0) {
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.debug({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        logger.debug({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
       } else {
-        logger.debug({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logger.debug({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
       }
     } else {
       logger.debug({ caller: fileName }, msg);
