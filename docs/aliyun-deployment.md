@@ -41,7 +41,7 @@ REDIS_PASSWORD=your_redis_password
 JWT_SECRET=your_very_long_and_secure_jwt_secret_here_minimum_32_chars
 
 # 前端URL
-FRONTEND_URL=https://your-domain.com
+FRONTEND_URL=120.26.240.50
 ```
 
 ### 2. 执行部署
