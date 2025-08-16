@@ -6,7 +6,7 @@ import { queryFromD1 } from '../../lib/d1';
 import { getLogger } from '../../lib/logger';
 import questionnaire from '../../public/questionnaire.json';
 import { getRandomJournalist } from '../../lib/random-choose-journalist';
-import appConfig from '../../lib/config';
+import { aiConfig } from '../../lib/ai-config';
 
 const log = getLogger('api-gen-battle-story');
 
@@ -462,7 +462,7 @@ async function handler(req: Request): Promise<Response> {
     let needsWorldviewWarning = false;
 
     // 如果功能开启且用户有输入，则进行AI检查
-    if (appConfig.ENABLE_ARENA_USER_GUIDANCE && finalUserGuidance) {
+    if (aiConfig.ENABLE_ARENA_USER_GUIDANCE && finalUserGuidance) {
       // 1. 安全检查
       try {
           const safetyResult = await generateWithAI(finalUserGuidance, {
@@ -487,7 +487,7 @@ async function handler(req: Request): Promise<Response> {
       }
 
       // 2. 世界观检查 (仅在安全检查通过后且在设置中开启此功能的情况下进行)
-      if (appConfig.ENABLE_WORLDVIEW_CHECK && finalUserGuidance) {
+      if (aiConfig.ENABLE_WORLDVIEW_CHECK && finalUserGuidance) {
           try {
               const worldviewResult = await generateWithAI(finalUserGuidance, {
                   systemPrompt: "你是一个魔法少女世界观的专家。请判断用户输入的内容是否与该世界观兼容。你的回答必须严格遵守JSON格式。",
