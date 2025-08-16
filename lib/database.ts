@@ -132,7 +132,7 @@ async function initializePool(): Promise<void> {
 }
 
 // 执行查询（带重试机制和性能监控）
-async function executeQuery<T>(
+async function executeQuery<T = any>(
   query: string, 
   params: any[] = [], 
   retryCount = 0
@@ -167,7 +167,7 @@ async function executeQuery<T>(
       });
       
       await new Promise(resolve => setTimeout(resolve, dbConfig.retryDelay * (retryCount + 1)));
-      return executeQuery(query, params, retryCount + 1);
+      return executeQuery<T>(query, params, retryCount + 1);
     }
     
     logger.error('数据库查询执行失败', { 

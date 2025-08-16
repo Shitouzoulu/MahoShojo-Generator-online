@@ -91,7 +91,7 @@ function extractToken(req: Request): string | null {
 }
 
 // 主认证中间件
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function authMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   try {
     const token = extractToken(req);
     
@@ -122,7 +122,7 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
 }
 
 // 可选认证中间件（不强制要求认证）
-export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   try {
     const token = extractToken(req);
     
@@ -149,7 +149,7 @@ export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response,
 
 // 角色权限检查中间件
 export function requireRole(roles: UserRole | UserRole[]): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new AuthenticationError('需要登录'));
     }
@@ -165,23 +165,23 @@ export function requireRole(roles: UserRole | UserRole[]): (req: AuthenticatedRe
 }
 
 // 管理员权限检查
-export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole([UserRole.ADMIN])(req, res, next);
+export function requireAdmin(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
+  requireRole([UserRole.ADMIN])(req, _res, next);
 }
 
 // 高级用户权限检查（管理员和高级用户）
-export function requirePremium(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole([UserRole.PREMIUM, UserRole.ADMIN])(req, res, next);
+export function requirePremium(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
+  requireRole([UserRole.PREMIUM, UserRole.ADMIN])(req, _res, next);
 }
 
 // 资源所有权检查中间件
 export function requireOwnership(resourceType: 'magical_girl' | 'canshou' | 'battle'): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new AuthenticationError('需要登录'));
     }
 
-    const resourceId = req.params.id || req.body.id;
+    const resourceId = (req.params && (req.params as any)['id']) || (req.body && (req.body as any)['id']);
     
     if (!resourceId) {
       return next(new ValidationError('缺少资源ID'));
@@ -208,16 +208,16 @@ export function requireOwnership(resourceType: 'magical_girl' | 'canshou' | 'bat
           return next(new ValidationError('无效的资源类型'));
       }
 
-      const result = await executeQuery(sql, params);
+      const result = await executeQuery<Array<{ user_id: string }>>(sql, params);
       
       if (result.length === 0) {
         return next(new ValidationError('资源不存在'));
       }
 
-      const resource = result[0];
+      const resource = result[0]!;
       
       // 检查是否是资源所有者或管理员
-      if (resource.user_id !== req.user.id && req.user.role !== UserRole.ADMIN) {
+      if (resource.user_id !== req.user!.id && req.user!.role !== UserRole.ADMIN) {
         return next(new AuthorizationError('只能操作自己的资源'));
       }
 
@@ -245,7 +245,7 @@ export async function registerUser(email: string, username: string, password: st
   }
 
   // 检查邮箱和用户名是否已存在
-  const existingUser = await executeQuery(
+  const existingUser = await executeQuery<Array<{ id: string }>>(
     'SELECT id FROM users WHERE email = ? OR username = ?',
     [email, username]
   );
@@ -275,7 +275,7 @@ export async function registerUser(email: string, username: string, password: st
   ]);
 
   // 返回用户信息（不包含密码）
-  const newUser = await executeQuery(
+  const newUser = await executeQuery<Array<User>>(
     'SELECT id, email, username, role, status, created_at, updated_at FROM users WHERE id = ?',
     [userId]
   );
@@ -285,17 +285,17 @@ export async function registerUser(email: string, username: string, password: st
 
 // 用户登录
 export async function loginUser(email: string, password: string): Promise<{ user: User; token: string }> {
-  if (!email || !username || !password) {
+  if (!email || !password) {
     throw new ValidationError('邮箱和密码都是必需的');
   }
 
   // 查找用户
-  const users = await executeQuery(
+  const users = await executeQuery<Array<any>>(
     'SELECT * FROM users WHERE email = ? OR username = ?',
     [email, email]
   );
 
-  if (users.length === 0) {
+  if (!Array.isArray(users) || users.length === 0) {
     throw new ValidationError('邮箱或密码错误');
   }
 
@@ -307,7 +307,7 @@ export async function loginUser(email: string, password: string): Promise<{ user
   }
 
   // 验证密码
-  const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+  const isPasswordValid = await bcrypt.compare(password, (user as any)['password_hash']);
   
   if (!isPasswordValid) {
     throw new ValidationError('邮箱或密码错误');
@@ -316,11 +316,11 @@ export async function loginUser(email: string, password: string): Promise<{ user
   // 更新登录信息
   await executeQuery(
     'UPDATE users SET last_login_at = NOW(), login_count = login_count + 1 WHERE id = ?',
-    [user.id]
+    [(user as any)['id']]
   );
 
   // 生成令牌
-  const token = generateToken(user);
+  const token = generateToken(user as User);
 
   // 创建会话记录
   const sessionId = generateUUID();
@@ -328,22 +328,22 @@ export async function loginUser(email: string, password: string): Promise<{ user
   
   await executeQuery(
     'INSERT INTO user_sessions (id, user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
-    [sessionId, user.id, token, expiresAt, null, null]
+    [sessionId, (user as any)['id'], token, expiresAt, null, null]
   );
 
   // 返回用户信息和令牌
   const userInfo: User = {
-    id: user.id,
-    email: user.email,
-    username: user.username,
-    role: user.role,
-    status: user.status,
-    avatar_url: user.avatar_url,
-    bio: user.bio,
-    last_login_at: user.last_login_at,
-    login_count: user.login_count + 1,
-    created_at: user.created_at,
-    updated_at: user.updated_at
+    id: (user as any)['id'],
+    email: (user as any)['email'],
+    username: (user as any)['username'],
+    role: (user as any)['role'],
+    status: (user as any)['status'],
+    avatar_url: (user as any)['avatar_url'],
+    bio: (user as any)['bio'],
+    last_login_at: (user as any)['last_login_at'],
+    login_count: ((user as any)['login_count'] ?? 0) + 1,
+    created_at: (user as any)['created_at'],
+    updated_at: (user as any)['updated_at']
   };
 
   return { user: userInfo, token };
@@ -368,7 +368,7 @@ export async function refreshToken(oldToken: string): Promise<string> {
     const decoded = verifyToken(oldToken);
     
     // 检查用户是否存在且状态正常
-    const users = await executeQuery(
+    const users = await executeQuery<Array<any>>(
       'SELECT * FROM users WHERE id = ? AND status = ?',
       [decoded.id, UserStatus.ACTIVE]
     );
@@ -377,10 +377,10 @@ export async function refreshToken(oldToken: string): Promise<string> {
       throw new AuthenticationError('用户不存在或已被禁用');
     }
 
-    const user = users[0];
+    const user = users[0] as any;
     
     // 生成新令牌
-    const newToken = generateToken(user);
+    const newToken = generateToken(user as User);
     
     // 更新会话记录
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
