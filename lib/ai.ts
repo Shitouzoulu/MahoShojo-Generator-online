@@ -252,3 +252,44 @@ export async function generateWithAI<T, I = string>(
   log.error(`所有提供商都失败了: ${lastError}`);
   throw new Error(`${generationConfig.taskName}失败: ${lastError}`);
 }
+
+// ---------------- Battle Story generation (server usage) ----------------
+
+export const BattleStorySchema = z.object({
+  title: z.string(),
+  winner: z.string().nullable().optional(),
+  battleReport: z.array(
+    z.object({
+      round: z.number(),
+      description: z.string(),
+    })
+  ).min(1),
+});
+
+export interface GenerateBattleStoryInput {
+  participants: Array<any>;
+  mode: 'normal' | 'daily' | 'kizuna';
+  userPreferences?: any;
+}
+
+export type BattleStory = z.infer<typeof BattleStorySchema>;
+
+export async function generateBattleStory(input: GenerateBattleStoryInput): Promise<BattleStory> {
+  const generationConfig: GenerationConfig<BattleStory, GenerateBattleStoryInput> = {
+    taskName: '生成战斗故事',
+    systemPrompt:
+      '你是一名战地记者，请基于给定的参与者与模式，生成一篇战斗报道的结构化结果。' +
+      '要求严格输出 JSON，字段包括: title(标题), winner(胜者ID或名称), battleReport(回合描述数组)。',
+    temperature: 0.9,
+    maxTokens: 2048,
+    schema: BattleStorySchema,
+    promptBuilder: ({ participants, mode, userPreferences }) => {
+      const participantsStr = JSON.stringify(participants, null, 2);
+      const prefs = userPreferences ? `\n【用户偏好】\n${JSON.stringify(userPreferences, null, 2)}` : '';
+      return `\n【战斗模式】${mode}\n【参与者】\n${participantsStr}${prefs}\n` +
+        '请仅返回符合 schema 的 JSON。winner 字段不存在时可为 null。battleReport 至少包含 1 回合，描述应简洁生动。';
+    },
+  };
+
+  return generateWithAI<BattleStory, GenerateBattleStoryInput>(input, generationConfig);
+}
