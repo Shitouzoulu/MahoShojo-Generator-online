@@ -117,7 +117,8 @@ export function errorHandler(
       error.field
     );
 
-    return res.status(error.statusCode).json(errorResponse);
+    res.status(error.statusCode).json(errorResponse);
+    return;
   }
 
   // 处理数据库错误
@@ -130,7 +131,8 @@ export function errorHandler(
       error.message
     );
 
-    return res.status(HttpStatus.BAD_REQUEST).json(validationError);
+    res.status(HttpStatus.BAD_REQUEST).json(validationError);
+    return;
   }
 
   // 处理JWT错误
@@ -142,7 +144,8 @@ export function errorHandler(
       requestId
     );
 
-    return res.status(HttpStatus.UNAUTHORIZED).json(jwtError);
+    res.status(HttpStatus.UNAUTHORIZED).json(jwtError);
+    return;
   }
 
   if (error.name === 'TokenExpiredError') {
@@ -153,7 +156,8 @@ export function errorHandler(
       requestId
     );
 
-    return res.status(HttpStatus.UNAUTHORIZED).json(tokenExpiredError);
+    res.status(HttpStatus.UNAUTHORIZED).json(tokenExpiredError);
+    return;
   }
 
   // 处理AI服务错误
@@ -166,7 +170,8 @@ export function errorHandler(
       error.message
     );
 
-    return res.status(HttpStatus.SERVICE_UNAVAILABLE).json(aiError);
+    res.status(HttpStatus.SERVICE_UNAVAILABLE).json(aiError);
+    return;
   }
 
   // 默认服务器内部错误
