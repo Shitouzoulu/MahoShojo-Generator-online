@@ -161,7 +161,7 @@ export interface AuthenticatedRequest extends Express.Request {
 }
 
 // 扩展的Express响应接口
-export interface ApiResponse extends Express.Response {
+export interface ExtendedApiResponse extends Express.Response {
   apiSuccess: <T>(data: T, pagination?: PaginationInfo) => void;
   apiError: (error: ApiError) => void;
 }
