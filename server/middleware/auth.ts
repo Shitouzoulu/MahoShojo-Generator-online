@@ -64,13 +64,13 @@ export function generateToken(user: User): string {
     status: user.status
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, JWT_SECRET as jwt.Secret, { expiresIn: JWT_EXPIRES_IN });
 }
 
 // 验证JWT令牌
 export function verifyToken(token: string): any {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET as jwt.Secret);
   } catch (error) {
     throw new AuthenticationError('无效的认证令牌');
   }
