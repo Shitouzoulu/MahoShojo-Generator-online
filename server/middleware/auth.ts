@@ -51,8 +51,13 @@ export interface AuthenticatedRequest extends Request {
 }
 
 // JWT配置
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET = process.env['JWT_SECRET'] || 'your-secret-key';
+const DEFAULT_JWT_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7; // 7天（秒）
+const JWT_EXPIRES_IN_SECONDS: number = (() => {
+  const raw = process.env['JWT_EXPIRES_IN'];
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_JWT_EXPIRES_IN_SECONDS;
+})();
 
 // 生成JWT令牌
 export function generateToken(user: User): string {
@@ -64,13 +69,13 @@ export function generateToken(user: User): string {
     status: user.status
   };
 
-  return jwt.sign(payload, JWT_SECRET as string, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN_SECONDS });
 }
 
 // 验证JWT令牌
 export function verifyToken(token: string): any {
   try {
-    return jwt.verify(token, JWT_SECRET as string);
+    return jwt.verify(token, JWT_SECRET);
   } catch (error) {
     throw new AuthenticationError('无效的认证令牌');
   }
