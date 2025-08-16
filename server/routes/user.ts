@@ -1,495 +1,508 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { loginLimiter } from '../middleware/rateLimiter';
-import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth';
-import { executeQuery, generateUUID } from '../../lib/database';
+import { z } from 'zod';
+import { asyncHandler } from '../middleware/errorHandler';
+import { authMiddleware, requireRole, UserRole, registerUser, loginUser, logoutUser, refreshToken } from '../middleware/auth';
+import { createSuccessResponse, createErrorResponse, ErrorCodes, HttpStatus, generateRequestId } from '../../lib/types/api';
+import { getLogger } from '../../lib/logger';
 
 const router = Router();
+const logger = getLogger('userRoutes');
+
+// 用户注册验证schema
+const registerSchema = z.object({
+  email: z.string().email('邮箱格式不正确'),
+  username: z.string().min(3, '用户名至少3个字符').max(100, '用户名最多100个字符'),
+  password: z.string().min(6, '密码至少6个字符').max(128, '密码最多128个字符')
+});
+
+// 用户登录验证schema
+const loginSchema = z.object({
+  email: z.string().email('邮箱格式不正确'),
+  password: z.string().min(1, '密码不能为空')
+});
+
+// 用户信息更新schema
+const updateProfileSchema = z.object({
+  username: z.string().min(3, '用户名至少3个字符').max(100, '用户名最多100个字符').optional(),
+  bio: z.string().max(500, '个人简介最多500个字符').optional(),
+  avatar_url: z.string().url('头像URL格式不正确').optional()
+});
+
+// 密码修改schema
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, '当前密码不能为空'),
+  newPassword: z.string().min(6, '新密码至少6个字符').max(128, '新密码最多128个字符')
+});
 
 // 用户注册
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  
   try {
-    const { username, email, password } = req.body;
+    // 验证请求数据
+    const validatedData = registerSchema.parse(req.body);
     
-    // 验证输入
-    if (!username || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '用户名、邮箱和密码都是必需的',
-          statusCode: 400
-        }
-      });
-    }
-    
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '密码长度至少6位',
-          statusCode: 400
-        }
-      });
-    }
-    
-    // 检查用户名和邮箱是否已存在
-    const checkSql = 'SELECT id FROM users WHERE username = ? OR email = ?';
-    const existing = await executeQuery(checkSql, [username, email]);
-    
-    if (existing.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '用户名或邮箱已存在',
-          statusCode: 400
-        }
-      });
-    }
-    
-    // 加密密码
-    const saltRounds = 12;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
-    
-    // 创建用户
-    const userId = generateUUID();
-    const insertSql = `
-      INSERT INTO users (id, username, email, password_hash)
-      VALUES (?, ?, ?, ?)
-    `;
-    
-    await executeQuery(insertSql, [userId, username, email, passwordHash]);
-    
-    // 生成JWT token
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET环境变量未设置');
-    }
-    
-    const token = jwt.sign(
-      { id: userId, username, email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+    // 注册用户
+    const user = await registerUser(
+      validatedData.email,
+      validatedData.username,
+      validatedData.password
     );
-    
-    res.status(201).json({
-      success: true,
-      data: {
-        user: {
-          id: userId,
-          username,
-          email
-        },
-        token
-      }
-    });
-  } catch (error) {
-    console.error('用户注册失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '用户注册失败',
-        statusCode: 500
-      }
-    });
-  }
-});
 
-// 用户登录
-router.post('/login', loginLimiter, async (req: Request, res: Response) => {
-  try {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '用户名和密码都是必需的',
-          statusCode: 400
-        }
-      });
-    }
-    
-    // 查找用户
-    const sql = 'SELECT * FROM users WHERE username = ? OR email = ?';
-    const [user] = await executeQuery(sql, [username, username]);
-    
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          message: '用户名或密码错误',
-          statusCode: 401
-        }
-      });
-    }
-    
-    // 验证密码
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-    
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          message: '用户名或密码错误',
-          statusCode: 401
-        }
-      });
-    }
-    
-    // 生成JWT token
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET环境变量未设置');
-    }
-    
-    const token = jwt.sign(
-      { id: user.id, username: user.username, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    
-    res.json({
-      success: true,
-      data: {
+    logger.info('用户注册成功', { requestId, email: user.email, username: user.username });
+
+    const response = createSuccessResponse(
+      {
+        message: '注册成功',
         user: {
           id: user.id,
-          username: user.username,
           email: user.email,
-          createdAt: user.created_at
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          created_at: user.created_at
+        }
+      },
+      requestId
+    );
+
+    res.status(HttpStatus.CREATED).json(response);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const validationError = createErrorResponse(
+        '数据验证失败',
+        ErrorCodes.VALIDATION_ERROR,
+        HttpStatus.BAD_REQUEST,
+        requestId,
+        error.errors
+      );
+      return res.status(HttpStatus.BAD_REQUEST).json(validationError);
+    }
+
+    logger.error('用户注册失败', { requestId, error });
+    throw error;
+  }
+}));
+
+// 用户登录
+router.post('/login', asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  
+  try {
+    // 验证请求数据
+    const validatedData = loginSchema.parse(req.body);
+    
+    // 用户登录
+    const { user, token } = await loginUser(
+      validatedData.email,
+      validatedData.password
+    );
+
+    logger.info('用户登录成功', { requestId, userId: user.id, username: user.username });
+
+    const response = createSuccessResponse(
+      {
+        message: '登录成功',
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          avatar_url: user.avatar_url,
+          bio: user.bio,
+          last_login_at: user.last_login_at,
+          login_count: user.login_count
         },
-        token
-      }
-    });
-  } catch (error) {
-    console.error('用户登录失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '用户登录失败',
-        statusCode: 500
-      }
-    });
-  }
-});
+        token,
+        expires_in: '7d'
+      },
+      requestId
+    );
 
-// 获取用户信息
-router.get('/profile', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const sql = 'SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?';
-    const [user] = await executeQuery(sql, [req.user!.id]);
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: {
-          message: '用户不存在',
-          statusCode: 404
-        }
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: user
-    });
+    res.status(HttpStatus.OK).json(response);
   } catch (error) {
-    console.error('获取用户信息失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '获取用户信息失败',
-        statusCode: 500
-      }
-    });
-  }
-});
+    if (error instanceof z.ZodError) {
+      const validationError = createErrorResponse(
+        '数据验证失败',
+        ErrorCodes.VALIDATION_ERROR,
+        HttpStatus.BAD_REQUEST,
+        requestId,
+        error.errors
+      );
+      return res.status(HttpStatus.BAD_REQUEST).json(validationError);
+    }
 
-// 更新用户信息
-router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { username, email } = req.body;
-    
-    if (!username && !email) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '至少需要提供一个要更新的字段',
-          statusCode: 400
-        }
-      });
-    }
-    
-    // 检查用户名和邮箱是否已被其他用户使用
-    if (username || email) {
-      const checkSql = 'SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?';
-      const existing = await executeQuery(checkSql, [username || '', email || '', req.user!.id]);
-      
-      if (existing.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            message: '用户名或邮箱已被其他用户使用',
-            statusCode: 400
-          }
-        });
-      }
-    }
-    
-    // 更新用户信息
-    let updateSql = 'UPDATE users SET';
-    const params: any[] = [];
-    
-    if (username) {
-      updateSql += ' username = ?';
-      params.push(username);
-    }
-    
-    if (email) {
-      if (username) updateSql += ',';
-      updateSql += ' email = ?';
-      params.push(email);
-    }
-    
-    updateSql += ', updated_at = CURRENT_TIMESTAMP WHERE id = ?';
-    params.push(req.user!.id);
-    
-    await executeQuery(updateSql, params);
-    
-    res.json({
-      success: true,
-      data: {
-        message: '用户信息更新成功'
-      }
-    });
-  } catch (error) {
-    console.error('更新用户信息失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '更新用户信息失败',
-        statusCode: 500
-      }
-    });
+    logger.error('用户登录失败', { requestId, error });
+    throw error;
   }
-});
+}));
+
+// 用户登出
+router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  const token = req.headers.authorization?.substring(7);
+  
+  if (token) {
+    await logoutUser(token);
+    logger.info('用户登出成功', { requestId, userId: req.user?.id });
+  }
+
+  const response = createSuccessResponse(
+    { message: '登出成功' },
+    requestId
+  );
+
+  res.status(HttpStatus.OK).json(response);
+}));
+
+// 刷新令牌
+router.post('/refresh-token', asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  const { token } = req.body;
+  
+  if (!token) {
+    const error = createErrorResponse(
+      '缺少令牌',
+      ErrorCodes.MISSING_FIELD,
+      HttpStatus.BAD_REQUEST,
+      requestId
+    );
+    return res.status(HttpStatus.BAD_REQUEST).json(error);
+  }
+
+  try {
+    const newToken = await refreshToken(token);
+    
+    logger.info('令牌刷新成功', { requestId });
+
+    const response = createSuccessResponse(
+      {
+        message: '令牌刷新成功',
+        token: newToken,
+        expires_in: '7d'
+      },
+      requestId
+    );
+
+    res.status(HttpStatus.OK).json(response);
+  } catch (error) {
+    logger.error('令牌刷新失败', { requestId, error });
+    throw error;
+  }
+}));
+
+// 获取当前用户信息
+router.get('/profile', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  
+  const response = createSuccessResponse(
+    {
+      user: {
+        id: req.user?.id,
+        email: req.user?.email,
+        username: req.user?.username,
+        role: req.user?.role,
+        status: req.user?.status
+      }
+    },
+    requestId
+  );
+
+  res.status(HttpStatus.OK).json(response);
+}));
+
+// 更新用户资料
+router.put('/profile', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  
+  try {
+    // 验证请求数据
+    const validatedData = updateProfileSchema.parse(req.body);
+    
+    // 构建更新SQL
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+    
+    if (validatedData.username !== undefined) {
+      updateFields.push('username = ?');
+      updateValues.push(validatedData.username);
+    }
+    
+    if (validatedData.bio !== undefined) {
+      updateFields.push('bio = ?');
+      updateValues.push(validatedData.bio);
+    }
+    
+    if (validatedData.avatar_url !== undefined) {
+      updateFields.push('avatar_url = ?');
+      updateValues.push(validatedData.avatar_url);
+    }
+    
+    if (updateFields.length === 0) {
+      const error = createErrorResponse(
+        '没有需要更新的字段',
+        ErrorCodes.VALIDATION_ERROR,
+        HttpStatus.BAD_REQUEST,
+        requestId
+      );
+      return res.status(HttpStatus.BAD_REQUEST).json(error);
+    }
+    
+    updateFields.push('updated_at = NOW()');
+    updateValues.push(req.user?.id);
+    
+    const sql = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+    
+    // 执行更新
+    await require('../../lib/database').executeQuery(sql, updateValues);
+    
+    logger.info('用户资料更新成功', { requestId, userId: req.user?.id });
+
+    const response = createSuccessResponse(
+      { message: '资料更新成功' },
+      requestId
+    );
+
+    res.status(HttpStatus.OK).json(response);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const validationError = createErrorResponse(
+        '数据验证失败',
+        ErrorCodes.VALIDATION_ERROR,
+        HttpStatus.BAD_REQUEST,
+        requestId,
+        error.errors
+      );
+      return res.status(HttpStatus.BAD_REQUEST).json(validationError);
+    }
+
+    logger.error('用户资料更新失败', { requestId, error });
+    throw error;
+  }
+}));
 
 // 修改密码
-router.put('/password', authMiddleware, async (req: Request, res: Response) => {
+router.put('/change-password', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  
   try {
-    const { currentPassword, newPassword } = req.body;
-    
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '当前密码和新密码都是必需的',
-          statusCode: 400
-        }
-      });
-    }
-    
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: '新密码长度至少6位',
-          statusCode: 400
-        }
-      });
-    }
-    
-    // 获取当前用户信息
-    const userSql = 'SELECT password_hash FROM users WHERE id = ?';
-    const [user] = await executeQuery(userSql, [req.user!.id]);
+    // 验证请求数据
+    const validatedData = changePasswordSchema.parse(req.body);
     
     // 验证当前密码
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    const bcrypt = require('bcryptjs');
+    const { executeQuery } = require('../../lib/database');
+    
+    const users = await executeQuery(
+      'SELECT password_hash FROM users WHERE id = ?',
+      [req.user?.id]
+    );
+    
+    if (users.length === 0) {
+      const error = createErrorResponse(
+        '用户不存在',
+        ErrorCodes.NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+        requestId
+      );
+      return res.status(HttpStatus.NOT_FOUND).json(error);
+    }
+    
+    const isCurrentPasswordValid = await bcrypt.compare(
+      validatedData.currentPassword,
+      users[0].password_hash
+    );
     
     if (!isCurrentPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          message: '当前密码错误',
-          statusCode: 401
-        }
-      });
+      const error = createErrorResponse(
+        '当前密码错误',
+        ErrorCodes.VALIDATION_ERROR,
+        HttpStatus.BAD_REQUEST,
+        requestId
+      );
+      return res.status(HttpStatus.BAD_REQUEST).json(error);
     }
     
     // 加密新密码
     const saltRounds = 12;
-    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+    const newPasswordHash = await bcrypt.hash(validatedData.newPassword, saltRounds);
     
     // 更新密码
-    const updateSql = 'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
-    await executeQuery(updateSql, [newPasswordHash, req.user!.id]);
-    
-    res.json({
-      success: true,
-      data: {
-        message: '密码修改成功'
-      }
-    });
-  } catch (error) {
-    console.error('修改密码失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '修改密码失败',
-        statusCode: 500
-      }
-    });
-  }
-});
-
-// 获取用户收藏统计
-router.get('/stats/favorites', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const sql = `
-      SELECT 
-        character_type,
-        COUNT(*) as total,
-        COUNT(CASE WHEN is_favorite = true THEN 1 END) as favorites
-      FROM user_characters
-      WHERE user_id = ?
-      GROUP BY character_type
-    `;
-    
-    const stats = await executeQuery(sql, [req.user!.id]);
-    
-    res.json({
-      success: true,
-      data: stats
-    });
-  } catch (error) {
-    console.error('获取用户收藏统计失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '获取用户收藏统计失败',
-        statusCode: 500
-      }
-    });
-  }
-});
-
-// 获取用户角色列表
-router.get('/characters', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { page = 1, limit = 20, type, isFavorite } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
-    
-    let sql = `
-      SELECT uc.*, 
-             CASE 
-               WHEN uc.character_type = 'magical_girl' THEN mg.name
-               WHEN uc.character_type = 'canshou' THEN c.name
-             END as character_name,
-             CASE 
-               WHEN uc.character_type = 'magical_girl' THEN mg.flower_name
-               WHEN uc.character_type = 'canshou' THEN c.stage
-             END as character_subtype
-      FROM user_characters uc
-      LEFT JOIN magical_girls mg ON uc.character_id = mg.id AND uc.character_type = 'magical_girl'
-      LEFT JOIN canshou c ON uc.character_id = c.id AND uc.character_type = 'canshou'
-      WHERE uc.user_id = ?
-    `;
-    
-    const params: any[] = [req.user!.id];
-    
-    if (type) {
-      sql += ' AND uc.character_type = ?';
-      params.push(type);
-    }
-    
-    if (isFavorite !== undefined) {
-      sql += ' AND uc.is_favorite = ?';
-      params.push(isFavorite === 'true');
-    }
-    
-    sql += ' ORDER BY uc.created_at DESC LIMIT ? OFFSET ?';
-    params.push(Number(limit), offset);
-    
-    const characters = await executeQuery(sql, params);
-    
-    // 获取总数
-    let countSql = 'SELECT COUNT(*) as total FROM user_characters WHERE user_id = ?';
-    const countParams: any[] = [req.user!.id];
-    
-    if (type) {
-      countSql += ' AND character_type = ?';
-      countParams.push(type);
-    }
-    
-    if (isFavorite !== undefined) {
-      countSql += ' AND is_favorite = ?';
-      countParams.push(isFavorite === 'true');
-    }
-    
-    const [{ total }] = await executeQuery(countSql, countParams);
-    
-    res.json({
-      success: true,
-      data: {
-        characters,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total,
-          pages: Math.ceil(total / Number(limit))
-        }
-      }
-    });
-  } catch (error) {
-    console.error('获取用户角色列表失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '获取用户角色列表失败',
-        statusCode: 500
-      }
-    });
-  }
-});
-
-// 刷新token
-router.post('/refresh-token', optionalAuthMiddleware, async (req: Request, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: {
-          message: '需要有效的访问令牌',
-          statusCode: 401
-        }
-      });
-    }
-    
-    // 生成新的JWT token
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET环境变量未设置');
-    }
-    
-    const token = jwt.sign(
-      { id: req.user.id, username: req.user.username, email: req.user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+    await executeQuery(
+      'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?',
+      [newPasswordHash, req.user?.id]
     );
     
-    res.json({
-      success: true,
-      data: {
-        token
-      }
-    });
+    logger.info('用户密码修改成功', { requestId, userId: req.user?.id });
+
+    const response = createSuccessResponse(
+      { message: '密码修改成功' },
+      requestId
+    );
+
+    res.status(HttpStatus.OK).json(response);
   } catch (error) {
-    console.error('刷新token失败:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: '刷新token失败',
-        statusCode: 500
-      }
-    });
+    if (error instanceof z.ZodError) {
+      const validationError = createErrorResponse(
+        '数据验证失败',
+        ErrorCodes.VALIDATION_ERROR,
+        HttpStatus.BAD_REQUEST,
+        requestId,
+        error.errors
+      );
+      return res.status(HttpStatus.BAD_REQUEST).json(validationError);
+    }
+
+    logger.error('用户密码修改失败', { requestId, error });
+    throw error;
   }
-});
+}));
+
+// 获取用户统计信息
+router.get('/stats', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  
+  try {
+    const { executeQuery } = require('../../lib/database');
+    
+    // 获取用户创建的角色数量
+    const magicalGirlsCount = await executeQuery(
+      'SELECT COUNT(*) as count FROM magical_girls WHERE user_id = ?',
+      [req.user?.id]
+    );
+    
+    const canshouCount = await executeQuery(
+      'SELECT COUNT(*) as count FROM canshou WHERE user_id = ?',
+      [req.user?.id]
+    );
+    
+    // 获取用户参与的战斗数量
+    const battlesCount = await executeQuery(
+      'SELECT COUNT(*) as count FROM battles WHERE user_id = ?',
+      [req.user?.id]
+    );
+    
+    // 获取用户收藏数量
+    const favoritesCount = await executeQuery(
+      'SELECT COUNT(*) as count FROM user_favorites WHERE user_id = ?',
+      [req.user?.id]
+    );
+
+    const response = createSuccessResponse(
+      {
+        stats: {
+          magical_girls: magicalGirlsCount[0].count,
+          canshou: canshouCount[0].count,
+          battles: battlesCount[0].count,
+          favorites: favoritesCount[0].count
+        }
+      },
+      requestId
+    );
+
+    res.status(HttpStatus.OK).json(response);
+  } catch (error) {
+    logger.error('获取用户统计信息失败', { requestId, error });
+    throw error;
+  }
+}));
+
+// 管理员：获取所有用户列表
+router.get('/admin/users', authMiddleware, requireRole([UserRole.ADMIN]), asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  const { page = 1, limit = 20, role, status, search } = req.query;
+  
+  try {
+    const { executeQuery } = require('../../lib/database');
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    let sql = 'SELECT id, email, username, role, status, created_at, last_login_at, login_count FROM users WHERE 1=1';
+    const params: any[] = [];
+    
+    if (role) {
+      sql += ' AND role = ?';
+      params.push(role);
+    }
+    
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    
+    if (search) {
+      sql += ' AND (username LIKE ? OR email LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm);
+    }
+    
+    // 获取总数
+    const countSql = sql.replace('SELECT id, email, username, role, status, created_at, last_login_at, login_count', 'SELECT COUNT(*) as total');
+    const totalResult = await executeQuery(countSql, params);
+    const total = totalResult[0].total;
+    
+    // 获取分页数据
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(Number(limit), offset);
+    
+    const users = await executeQuery(sql, params);
+    
+    const response = createSuccessResponse(
+      { users },
+      requestId,
+      {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit)),
+        hasNext: Number(page) < Math.ceil(total / Number(limit)),
+        hasPrev: Number(page) > 1
+      }
+    );
+
+    res.status(HttpStatus.OK).json(response);
+  } catch (error) {
+    logger.error('获取用户列表失败', { requestId, error });
+    throw error;
+  }
+}));
+
+// 管理员：更新用户状态
+router.put('/admin/users/:id/status', authMiddleware, requireRole([UserRole.ADMIN]), asyncHandler(async (req: Request, res: Response) => {
+  const requestId = generateRequestId();
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  if (!['active', 'suspended', 'banned'].includes(status)) {
+    const error = createErrorResponse(
+      '无效的用户状态',
+      ErrorCodes.VALIDATION_ERROR,
+      HttpStatus.BAD_REQUEST,
+      requestId
+    );
+    return res.status(HttpStatus.BAD_REQUEST).json(error);
+  }
+  
+  try {
+    const { executeQuery } = require('../../lib/database');
+    
+    await executeQuery(
+      'UPDATE users SET status = ?, updated_at = NOW() WHERE id = ?',
+      [status, id]
+    );
+    
+    logger.info('用户状态更新成功', { requestId, userId: id, newStatus: status });
+
+    const response = createSuccessResponse(
+      { message: '用户状态更新成功' },
+      requestId
+    );
+
+    res.status(HttpStatus.OK).json(response);
+  } catch (error) {
+    logger.error('更新用户状态失败', { requestId, error });
+    throw error;
+  }
+}));
 
 export default router;

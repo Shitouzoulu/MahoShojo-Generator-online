@@ -1,150 +1,166 @@
-// lib/config.ts
+import { config } from 'dotenv';
+import { z } from 'zod';
 
-// AI 提供商配置接口
-export interface AIProvider {
-  name: string;
-  apiKey: string;
-  baseUrl: string;
-  model: string | string[]; // 支持单个模型或多个模型数组
-  type: 'openai' | 'google';
-  retryCount?: number;
-  skipProbability?: number;
-  mode?: 'json' | 'auto' | 'tool' | undefined;
-  weight?: number; // 负载均衡权重，数值越大被选中概率越高
-}
+// 加载环境变量
+config();
 
-// 解析 AI 提供商配置的函数
-const parseAIProviders = (): AIProvider[] => {
-  // JSON 配置方式
-  if (process.env.AI_PROVIDERS_CONFIG) {
-    try {
-      const providers = JSON.parse(process.env.AI_PROVIDERS_CONFIG) as AIProvider[];
-      return providers
-        .filter(p => p.apiKey && p.baseUrl && p.model && p.type)
-        .map(p => ({
-          ...p,
-          retryCount: p.retryCount ?? 1,
-          skipProbability: p.skipProbability ?? 0
-        }));
-    } catch (error) {
-      console.warn('解析 AI_PROVIDERS_CONFIG 失败，回退到简单配置:', error);
+// 配置验证模式
+const configSchema = z.object({
+  // 应用配置
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.string().transform(Number).default('3000'),
+  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  
+  // 数据库配置
+  DB_HOST: z.string().default('localhost'),
+  DB_USER: z.string().default('root'),
+  DB_PASSWORD: z.string().default(''),
+  DB_NAME: z.string().default('mahoshojo'),
+  DB_PORT: z.string().transform(Number).default('3306'),
+  DB_CONNECTION_LIMIT: z.string().transform(Number).default('50'),
+  DB_QUEUE_LIMIT: z.string().transform(Number).default('100'),
+  DB_MIN_IDLE: z.string().transform(Number).default('10'),
+  DB_MAX_IDLE: z.string().transform(Number).default('20'),
+  DB_ACQUIRE_TIMEOUT: z.string().transform(Number).default('60000'),
+  DB_TIMEOUT: z.string().transform(Number).default('60000'),
+  DB_MAX_RETRIES: z.string().transform(Number).default('5'),
+  DB_RETRY_DELAY: z.string().transform(Number).default('1000'),
+  
+  // JWT配置
+  JWT_SECRET: z.string().min(32, 'JWT密钥至少需要32个字符'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+  
+  // 安全配置
+  SESSION_SECRET: z.string().optional(),
+  COOKIE_SECURE: z.string().transform(val => val === 'true').default('false'),
+  COOKIE_HTTPONLY: z.string().transform(val => val === 'true').default('true'),
+  
+  // 文件上传配置
+  MAX_FILE_SIZE: z.string().transform(Number).default('10485760'),
+  UPLOAD_PATH: z.string().default('./uploads'),
+  
+  // Redis配置
+  REDIS_HOST: z.string().optional(),
+  REDIS_PORT: z.string().transform(Number).optional(),
+  REDIS_PASSWORD: z.string().optional(),
+  REDIS_DB: z.string().transform(Number).optional(),
+  
+  // AI配置
+  AI_PROVIDERS_CONFIG: z.string().optional(),
+  AI_LOAD_BALANCE_STRATEGY: z.enum(['sequential', 'random', 'round_robin']).default('random'),
+  
+  // 队列配置
+  QUEUE_MAX_REQUESTS_PER_MINUTE: z.string().transform(Number).default('10'),
+  QUEUE_USER_WAIT_TIME_SECONDS: z.string().transform(Number).default('30'),
+  
+  // 日志配置
+  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+  LOG_FILE: z.string().optional(),
+  
+  // 监控配置
+  ENABLE_METRICS: z.string().transform(val => val === 'true').default('false'),
+  METRICS_PORT: z.string().transform(Number).default('9090'),
+  
+  // 性能配置
+  ENABLE_COMPRESSION: z.string().transform(val => val === 'true').default('true'),
+  ENABLE_CACHING: z.string().transform(val => val === 'true').default('false'),
+  CACHE_TTL: z.string().transform(Number).default('3600'),
+});
+
+// 验证和解析配置
+function parseConfig() {
+  try {
+    const config = configSchema.parse(process.env);
+    
+    // 生产环境特殊验证
+    if (config.NODE_ENV === 'production') {
+      if (config.JWT_SECRET.length < 32) {
+        throw new Error('生产环境JWT密钥必须至少32个字符');
+      }
+      
+      if (!config.SESSION_SECRET) {
+        throw new Error('生产环境必须设置SESSION_SECRET');
+      }
+      
+      if (!config.REDIS_HOST) {
+        console.warn('生产环境建议配置Redis用于会话管理');
+      }
     }
-  }
-
-  // 向后兼容：单个 API Key 方式
-  const singleKey = process.env.AI_API_KEY;
-  const singleUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
-  const singleModel = process.env.AI_MODEL || 'gemini-2.0-flash';
-
-  if (singleKey) {
-    return [{
-      name: 'default_provider',
-      apiKey: singleKey,
-      baseUrl: singleUrl,
-      model: singleModel,
-      type: singleUrl.includes('googleapis.com') ? 'google' : 'openai',
-      retryCount: 1,
-      skipProbability: 0
-    }];
-  }
-
-  return [];
-};
-
-// 获取有效的 API 提供商（按配置顺序）
-const getAPIProviders = (): AIProvider[] => {
-  return parseAIProviders();
-};
-
-// 为了保持向后兼容，转换为原有的格式
-const parseApiPairs = () => {
-  const providers = getAPIProviders();
-  return providers.map(provider => ({
-    apiKey: provider.apiKey,
-    baseUrl: provider.baseUrl,
-    name: provider.name,
-    model: provider.model,
-    mode: provider?.mode || 'auto'
-  }));
-};
-
-// 获取第一个提供商的模型
-const getDefaultModel = (): string | string[] => {
-  const providers = getAPIProviders();
-  if (providers.length > 0) {
-    return providers[0].model;
-  }
-  return 'gemini-2.5-flash';
-};
-
-// 获取负载均衡策略
-const getLoadBalanceStrategy = (): string => {
-  return process.env.AI_LOAD_BALANCE_STRATEGY || 'random';
-};
-
-// 新增：获取统计数据显示开关
-const getShowStatData = (): boolean => {
-  const showStat = process.env.SHOW_STAT_DATA || 'false';
-  // 如果环境变量设置为 'false' 或 '0'，则返回 false，其他情况返回 true
-  if (showStat === 'false' || showStat === '0') {
-    return false;
-  }
-  return true; // 默认显示统计数据
-};
-
-// 获取排行榜模式
-const getLeaderboardMode = (): 'all' | 'preset' | 'user' => {
-  const mode = process.env.LEADERBOARD_MODE;
-  if (mode === 'preset' || mode === 'user') {
-    return mode;
-  }
-  return 'all'; // 默认为 'all'
-};
-
-// 获取竞技场用户引导功能开关
-const getEnableArenaUserGuidance = (): boolean => {
-  const enabled = process.env.NEXT_PUBLIC_ENABLE_ARENA_USER_GUIDANCE ?? 'true';
-  return enabled === 'true';
-};
-
-// 新增：获取世界观检查功能开关的函数
-const getEnableWorldviewCheck = (): boolean => {
-  const enabled = process.env.NEXT_PUBLIC_ENABLE_WORLDVIEW_CHECK ?? 'false';
-  // 默认关闭，只有当环境变量明确设置为 'true' 时才开启
-  return enabled === 'true';
-};
-
-export const config = {
-  // Vercel AI 配置
-  API_PAIRS: parseApiPairs(),
-  MODEL: getDefaultModel(),
-  PROVIDERS: getAPIProviders(),
-  LOAD_BALANCE_STRATEGY: getLoadBalanceStrategy(),
-
-  // 统计数据显示开关配置
-  SHOW_STAT_DATA: getShowStatData(),
-
-  // 排行榜模式配置
-  LEADERBOARD_MODE: getLeaderboardMode(),
-
-  // 竞技场用户引导功能开关
-  ENABLE_ARENA_USER_GUIDANCE: getEnableArenaUserGuidance(),
-
-  // 新增：世界观检查功能开关
-  ENABLE_WORLDVIEW_CHECK: getEnableWorldviewCheck(),
-
-  // 魔法少女生成配置
-  MAGICAL_GIRL_GENERATION: {
-    temperature: 0.8,
-
-    // 系统提示词
-    systemPrompt: `你是一个专业的魔法少女角色设计师。请根据用户输入的真实姓名，设计一个独特的魔法少女角色。
-
-设计要求：
-1. 魔法少女名字应该以花名为主题，要与用户的真实姓名有某种关联性或呼应
-2. 外貌特征要协调统一，符合魔法少女的设定
-3. 变身咒语要朗朗上口，充满魔法感
-
-请严格按照提供的 JSON schema 格式返回结果。`
+    
+    return config;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('配置验证失败:', error.errors);
+    } else {
+      console.error('配置解析失败:', error);
+    }
+    process.exit(1);
   }
 }
+
+// 获取配置实例
+const appConfig = parseConfig();
+
+// 配置工具函数
+export function getConfig() {
+  return appConfig;
+}
+
+export function isProduction() {
+  return appConfig.NODE_ENV === 'production';
+}
+
+export function isDevelopment() {
+  return appConfig.NODE_ENV === 'development';
+}
+
+export function isTest() {
+  return appConfig.NODE_ENV === 'test';
+}
+
+// 数据库配置
+export function getDatabaseConfig() {
+  return {
+    host: appConfig.DB_HOST,
+    user: appConfig.DB_USER,
+    password: appConfig.DB_PASSWORD,
+    database: appConfig.DB_NAME,
+    port: appConfig.DB_PORT,
+    connectionLimit: appConfig.DB_CONNECTION_LIMIT,
+    queueLimit: appConfig.DB_QUEUE_LIMIT,
+    minIdle: appConfig.DB_MIN_IDLE,
+    maxIdle: appConfig.DB_MAX_IDLE,
+    acquireTimeout: appConfig.DB_ACQUIRE_TIMEOUT,
+    timeout: appConfig.DB_TIMEOUT,
+    maxRetries: appConfig.DB_MAX_RETRIES,
+    retryDelay: appConfig.DB_RETRY_DELAY,
+  };
+}
+
+// Redis配置
+export function getRedisConfig() {
+  if (!appConfig.REDIS_HOST) {
+    return null;
+  }
+  
+  return {
+    host: appConfig.REDIS_HOST,
+    port: appConfig.REDIS_PORT || 6379,
+    password: appConfig.REDIS_PASSWORD,
+    db: appConfig.REDIS_DB || 0,
+  };
+}
+
+// 安全配置
+export function getSecurityConfig() {
+  return {
+    jwtSecret: appConfig.JWT_SECRET,
+    jwtExpiresIn: appConfig.JWT_EXPIRES_IN,
+    sessionSecret: appConfig.SESSION_SECRET,
+    cookieSecure: appConfig.COOKIE_SECURE,
+    cookieHttpOnly: appConfig.COOKIE_HTTPONLY,
+  };
+}
+
+// 导出配置
+export default appConfig;
