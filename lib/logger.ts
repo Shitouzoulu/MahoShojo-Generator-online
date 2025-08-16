@@ -49,9 +49,18 @@ export const getLogger = (fileName: string) => ({
       // 如果有额外参数，将它们合并到对象中
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.info({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
+        // 避免展开操作符的类型问题，直接调用logger
+        if (restArgs.length > 0) {
+          logger.info({ caller: fileName, ...firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.info({ caller: fileName, ...firstArg }, msg);
+        }
       } else {
-        logger.info({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.info({ caller: fileName, data: firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.info({ caller: fileName, data: firstArg }, msg);
+        }
       }
     } else {
       logger.info({ caller: fileName }, msg);
@@ -61,9 +70,17 @@ export const getLogger = (fileName: string) => ({
     if (args.length > 0) {
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.error({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.error({ caller: fileName, ...firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.error({ caller: fileName, ...firstArg }, msg);
+        }
       } else {
-        logger.error({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.error({ caller: fileName, data: firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.error({ caller: fileName, data: firstArg }, msg);
+        }
       }
     } else {
       logger.error({ caller: fileName }, msg);
@@ -73,9 +90,17 @@ export const getLogger = (fileName: string) => ({
     if (args.length > 0) {
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.warn({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.warn({ caller: fileName, ...firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.warn({ caller: fileName, ...firstArg }, msg);
+        }
       } else {
-        logger.warn({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.warn({ caller: fileName, data: firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.warn({ caller: fileName, data: firstArg }, msg);
+        }
       }
     } else {
       logger.warn({ caller: fileName }, msg);
@@ -85,9 +110,17 @@ export const getLogger = (fileName: string) => ({
     if (args.length > 0) {
       const [firstArg, ...restArgs] = args;
       if (typeof firstArg === 'object' && firstArg !== null) {
-        logger.debug({ caller: fileName, ...firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.debug({ caller: fileName, ...firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.debug({ caller: fileName, ...firstArg }, msg);
+        }
       } else {
-        logger.debug({ caller: fileName, data: firstArg }, msg, ...(restArgs as any[]));
+        if (restArgs.length > 0) {
+          logger.debug({ caller: fileName, data: firstArg }, msg, restArgs[0], ...restArgs.slice(1));
+        } else {
+          logger.debug({ caller: fileName, data: firstArg }, msg);
+        }
       }
     } else {
       logger.debug({ caller: fileName }, msg);
