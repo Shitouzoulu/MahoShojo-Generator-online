@@ -2,7 +2,7 @@ import { generateObject, NoObjectGeneratedError } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
-import { config, AIProvider } from "./config";
+import { aiConfig, AIProvider } from "./ai-config";
 import { getLogger } from "./logger";
 
 // 延迟函数
@@ -124,7 +124,7 @@ export async function generateWithAI<T, I = string>(
   generationConfig: GenerationConfig<T, I>,
   loadBalanceStrategy?: LoadBalanceStrategy
 ): Promise<T> {
-  const baseProviders = config.PROVIDERS;
+  const baseProviders = aiConfig.PROVIDERS;
 
   if (baseProviders.length === 0) {
     log.error("没有配置 API Key");
@@ -136,7 +136,7 @@ export async function generateWithAI<T, I = string>(
   log.debug(`展开后的提供商数量: ${expandedProviders.length}`);
 
   // 如果没有指定策略，从配置中读取
-  const strategy = loadBalanceStrategy || (config.LOAD_BALANCE_STRATEGY as LoadBalanceStrategy) || LoadBalanceStrategy.RANDOM;
+  const strategy = loadBalanceStrategy || (aiConfig.LOAD_BALANCE_STRATEGY as LoadBalanceStrategy) || LoadBalanceStrategy.RANDOM;
 
   let lastError: unknown = null;
   let providersToTry: AIProvider[] = [];
