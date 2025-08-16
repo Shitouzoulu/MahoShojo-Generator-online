@@ -45,85 +45,105 @@ const logger = createLogger();
 // 创建带有文件名的日志实例
 export const getLogger = (fileName: string) => ({
   info: (msg: string, ...args: any[]) => {
+    const logData = { caller: fileName };
+    
     if (args.length > 0) {
-      // 如果有额外参数，将它们合并到对象中
-      const [firstArg, ...restArgs] = args;
+      const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
-        // 避免展开操作符的类型问题，直接调用logger
-        if (restArgs.length > 0) {
-          logger.info({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        // 如果是对象，合并到logData中
+        Object.assign(logData, firstArg);
+        // 传递剩余参数
+        if (args.length > 1) {
+          logger.info(logData, msg, ...args.slice(1));
         } else {
-          logger.info({ caller: fileName, ...firstArg }, msg);
+          logger.info(logData, msg);
         }
       } else {
-        if (restArgs.length > 0) {
-          logger.info({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        // 如果不是对象，作为data字段
+        logData.data = firstArg;
+        if (args.length > 1) {
+          logger.info(logData, msg, ...args.slice(1));
         } else {
-          logger.info({ caller: fileName, data: firstArg }, msg);
+          logger.info(logData, msg);
         }
       }
     } else {
-      logger.info({ caller: fileName }, msg);
+      logger.info(logData, msg);
     }
   },
+
   error: (msg: string, ...args: any[]) => {
+    const logData = { caller: fileName };
+    
     if (args.length > 0) {
-      const [firstArg, ...restArgs] = args;
+      const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
-        if (restArgs.length > 0) {
-          logger.error({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        Object.assign(logData, firstArg);
+        if (args.length > 1) {
+          logger.error(logData, msg, ...args.slice(1));
         } else {
-          logger.error({ caller: fileName, ...firstArg }, msg);
+          logger.error(logData, msg);
         }
       } else {
-        if (restArgs.length > 0) {
-          logger.error({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logData.data = firstArg;
+        if (args.length > 1) {
+          logger.error(logData, msg, ...args.slice(1));
         } else {
-          logger.error({ caller: fileName, data: firstArg }, msg);
+          logger.error(logData, msg);
         }
       }
     } else {
-      logger.error({ caller: fileName }, msg);
+      logger.error(logData, msg);
     }
   },
+
   warn: (msg: string, ...args: any[]) => {
+    const logData = { caller: fileName };
+    
     if (args.length > 0) {
-      const [firstArg, ...restArgs] = args;
+      const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
-        if (restArgs.length > 0) {
-          logger.warn({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        Object.assign(logData, firstArg);
+        if (args.length > 1) {
+          logger.warn(logData, msg, ...args.slice(1));
         } else {
-          logger.warn({ caller: fileName, ...firstArg }, msg);
+          logger.warn(logData, msg);
         }
       } else {
-        if (restArgs.length > 0) {
-          logger.warn({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logData.data = firstArg;
+        if (args.length > 1) {
+          logger.warn(logData, msg, ...args.slice(1));
         } else {
-          logger.warn({ caller: fileName, data: firstArg }, msg);
+          logger.warn(logData, msg);
         }
       }
     } else {
-      logger.warn({ caller: fileName }, msg);
+      logger.warn(logData, msg);
     }
   },
+
   debug: (msg: string, ...args: any[]) => {
+    const logData = { caller: fileName };
+    
     if (args.length > 0) {
-      const [firstArg, ...restArgs] = args;
+      const firstArg = args[0];
       if (typeof firstArg === 'object' && firstArg !== null) {
-        if (restArgs.length > 0) {
-          logger.debug({ caller: fileName, ...firstArg }, msg, ...restArgs);
+        Object.assign(logData, firstArg);
+        if (args.length > 1) {
+          logger.debug(logData, msg, ...args.slice(1));
         } else {
-          logger.debug({ caller: fileName, ...firstArg }, msg);
+          logger.debug(logData, msg);
         }
       } else {
-        if (restArgs.length > 0) {
-          logger.debug({ caller: fileName, data: firstArg }, msg, ...restArgs);
+        logData.data = firstArg;
+        if (args.length > 1) {
+          logger.debug(logData, msg, ...args.slice(1));
         } else {
-          logger.debug({ caller: fileName, data: firstArg }, msg);
+          logger.debug(logData, msg);
         }
       }
     } else {
-      logger.debug({ caller: fileName }, msg);
+      logger.debug(logData, msg);
     }
   }
 });
