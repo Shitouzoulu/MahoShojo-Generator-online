@@ -78,7 +78,7 @@ class BattleService {
   static async getById(id: string): Promise<any> {
     try {
       const sql = 'SELECT * FROM battles WHERE id = ?';
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery<any[]>(sql, [id]);
       
       if (result.length === 0) {
         return {
@@ -107,12 +107,12 @@ class BattleService {
       
       // 获取总数
       const countSql = 'SELECT COUNT(*) as total FROM battles';
-      const countResult = await executeQuery(countSql);
+      const countResult = await executeQuery<{total: number}[]>(countSql);
       const total = countResult[0].total;
       
       // 获取分页数据
       const sql = 'SELECT * FROM battles ORDER BY created_at DESC LIMIT ? OFFSET ?';
-      const result = await executeQuery(sql, [limit, offset]);
+      const result = await executeQuery<any[]>(sql, [limit, offset]);
       
       return {
         success: true,
@@ -140,12 +140,12 @@ class BattleService {
       
       // 获取总数
       const countSql = 'SELECT COUNT(*) as total FROM battles WHERE mode = ?';
-      const countResult = await executeQuery(countSql, [mode]);
+      const countResult = await executeQuery<{total: number}[]>(countSql, [mode]);
       const total = countResult[0].total;
       
       // 获取分页数据
       const sql = 'SELECT * FROM battles WHERE mode = ? ORDER BY created_at DESC LIMIT ? OFFSET ?';
-      const result = await executeQuery(sql, [mode, limit, offset]);
+      const result = await executeQuery<any[]>(sql, [mode, limit, offset]);
       
       return {
         success: true,
@@ -174,7 +174,7 @@ class BattleService {
         WHERE character_id = ? AND character_type = ? 
         ORDER BY created_at DESC
       `;
-      const result = await executeQuery(sql, [characterId, characterType]);
+      const result = await executeQuery<any[]>(sql, [characterId, characterType]);
       
       return {
         success: true,
@@ -201,7 +201,7 @@ class BattleService {
         FROM character_battle_history 
         WHERE character_id = ? AND character_type = ?
       `;
-      const result = await executeQuery(sql, [characterId, characterType]);
+      const result = await executeQuery<any[]>(sql, [characterId, characterType]);
       
       return {
         success: true,
@@ -224,12 +224,12 @@ class BattleService {
       
       // 获取总数
       const countSql = 'SELECT COUNT(*) as total FROM battles WHERE title LIKE ?';
-      const countResult = await executeQuery(countSql, [searchQuery]);
+      const countResult = await executeQuery<{total: number}[]>(countSql, [searchQuery]);
       const total = countResult[0].total;
       
       // 获取分页数据
       const sql = 'SELECT * FROM battles WHERE title LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?';
-      const result = await executeQuery(sql, [searchQuery, limit, offset]);
+      const result = await executeQuery<any[]>(sql, [searchQuery, limit, offset]);
       
       return {
         success: true,

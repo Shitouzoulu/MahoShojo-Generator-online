@@ -23,7 +23,7 @@ class MagicalGirlService {
         magicalGirlData.second_page_color
       ];
 
-      await executeQuery(sql, params);
+      await executeQuery<void>(sql, params);
       
       const created = await this.getById(id);
       return {
@@ -43,7 +43,7 @@ class MagicalGirlService {
   static async getById(id: string): Promise<any> {
     try {
       const sql = 'SELECT * FROM magical_girls WHERE id = ?';
-      const result = await executeQuery(sql, [id]);
+      const result = await executeQuery<any[]>(sql, [id]);
       
       if (result.length === 0) {
         return {
@@ -69,7 +69,7 @@ class MagicalGirlService {
   static async getByName(name: string): Promise<any> {
     try {
       const sql = 'SELECT * FROM magical_girls WHERE name = ?';
-      const result = await executeQuery(sql, [name]);
+      const result = await executeQuery<any[]>(sql, [name]);
       
       if (result.length === 0) {
         return {
@@ -98,12 +98,12 @@ class MagicalGirlService {
       
       // 获取总数
       const countSql = 'SELECT COUNT(*) as total FROM magical_girls';
-      const countResult = await executeQuery(countSql);
+      const countResult = await executeQuery<{total: number}[]>(countSql);
       const total = countResult[0].total;
       
       // 获取分页数据
       const sql = 'SELECT * FROM magical_girls ORDER BY created_at DESC LIMIT ? OFFSET ?';
-      const result = await executeQuery(sql, [limit, offset]);
+      const result = await executeQuery<any[]>(sql, [limit, offset]);
       
       return {
         success: true,
@@ -154,7 +154,7 @@ class MagicalGirlService {
       values.push(id);
 
       const sql = `UPDATE magical_girls SET ${fields.join(', ')} WHERE id = ?`;
-      await executeQuery(sql, values);
+      await executeQuery<void>(sql, values);
       
       const updated = await this.getById(id);
       return {
@@ -174,7 +174,7 @@ class MagicalGirlService {
   static async delete(id: string): Promise<any> {
     try {
       const sql = 'DELETE FROM magical_girls WHERE id = ?';
-      await executeQuery(sql, [id]);
+      await executeQuery<void>(sql, [id]);
       
       return {
         success: true,
@@ -197,12 +197,12 @@ class MagicalGirlService {
       
       // 获取总数
       const countSql = 'SELECT COUNT(*) as total FROM magical_girls WHERE name LIKE ? OR flower_name LIKE ?';
-      const countResult = await executeQuery(countSql, [searchQuery, searchQuery]);
+      const countResult = await executeQuery<{total: number}[]>(countSql, [searchQuery, searchQuery]);
       const total = countResult[0].total;
       
       // 获取分页数据
       const sql = 'SELECT * FROM magical_girls WHERE name LIKE ? OR flower_name LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?';
-      const result = await executeQuery(sql, [searchQuery, searchQuery, limit, offset]);
+      const result = await executeQuery<any[]>(sql, [searchQuery, searchQuery, limit, offset]);
       
       return {
         success: true,
