@@ -6,7 +6,7 @@ import { queryFromD1 } from '../../lib/d1';
 import { getLogger } from '../../lib/logger';
 import questionnaire from '../../public/questionnaire.json';
 import { getRandomJournalist } from '../../lib/random-choose-journalist';
-import { config as appConfig } from '../../lib/config';
+import appConfig from '../../lib/config';
 
 const log = getLogger('api-gen-battle-story');
 

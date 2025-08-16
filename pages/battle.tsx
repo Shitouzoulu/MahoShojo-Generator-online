@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Preset } from './api/get-presets'; // 统一使用 Preset 类型
 import { StatsData } from './api/get-stats';
 import Leaderboard from '../components/Leaderboard';
-import { config as appConfig } from '../lib/config';
+import appConfig from '../lib/config';
 
 // 魔法少女设定核心字段（用于验证）
 const MAGICAL_GIRL_CORE_FIELDS = {

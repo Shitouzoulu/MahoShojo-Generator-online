@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { generateWithAI, GenerationConfig } from "../../lib/ai";
-import { config as appConfig } from "../../lib/config";
+import appConfig from "../../lib/config";
 import { MainColor } from "../../lib/main-color";
 import { getLogger } from "../../lib/logger";
 

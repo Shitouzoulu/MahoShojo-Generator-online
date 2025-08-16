@@ -2,7 +2,7 @@
 
 import { type NextRequest } from 'next/server';
 import { queryFromD1 } from '../../lib/d1';
-import { config as appConfig } from '../../lib/config'; // 导入应用配置
+import appConfig from '../../lib/config'; // 导入应用配置
 
 export const config = {
   runtime: 'edge',
