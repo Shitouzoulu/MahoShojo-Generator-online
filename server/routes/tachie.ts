@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { aiGenerationLimiter } from '../middleware/rateLimiter';
-import { optionalAuthMiddleware } from '../middleware/auth';
+import { optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { executeQuery, generateUUID } from '../../lib/database';
 import { generateTachie } from '../../lib/tachie/manager';
 
 const router = Router();
 
 // 生成立绘
-router.post('/generate', aiGenerationLimiter, async (req: Request, res: Response) => {
+router.post('/generate', aiGenerationLimiter, optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { characterData, style, size, userPreferences } = req.body;
     
@@ -100,7 +100,7 @@ router.post('/generate', aiGenerationLimiter, async (req: Request, res: Response
 });
 
 // 获取立绘生成状态
-router.get('/status/:taskId', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/status/:taskId', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { taskId } = req.params;
     
@@ -149,7 +149,7 @@ router.get('/status/:taskId', optionalAuthMiddleware, async (req: Request, res: 
 });
 
 // 获取用户立绘任务列表
-router.get('/user/tasks', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/user/tasks', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -219,7 +219,7 @@ router.get('/user/tasks', optionalAuthMiddleware, async (req: Request, res: Resp
 });
 
 // 取消立绘生成任务
-router.post('/cancel/:taskId', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/cancel/:taskId', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -281,7 +281,7 @@ router.post('/cancel/:taskId', optionalAuthMiddleware, async (req: Request, res:
 });
 
 // 重新生成立绘
-router.post('/regenerate/:taskId', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/regenerate/:taskId', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -364,7 +364,7 @@ router.post('/regenerate/:taskId', optionalAuthMiddleware, async (req: Request, 
 });
 
 // 获取立绘生成统计
-router.get('/stats/overview', async (req: Request, res: Response) => {
+router.get('/stats/overview', async (req: AuthenticatedRequest, res: Response) => {
   try {
     // 总任务数
     const [{ totalTasks }] = await executeQuery('SELECT COUNT(*) as totalTasks FROM tachie_tasks');
@@ -414,7 +414,7 @@ router.get('/stats/overview', async (req: Request, res: Response) => {
 });
 
 // 下载立绘
-router.get('/download/:taskId', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/download/:taskId', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { taskId } = req.params;
     

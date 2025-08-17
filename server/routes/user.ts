@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/errorHandler';
-import { authMiddleware, requireRole, UserRole, registerUser, loginUser, logoutUser, refreshToken } from '../middleware/auth';
+import { authMiddleware, requireRole, UserRole, registerUser, loginUser, logoutUser, refreshToken, AuthenticatedRequest } from '../middleware/auth';
 import { createSuccessResponse, createErrorResponse, ErrorCodes, HttpStatus, generateRequestId } from '../../lib/types/api';
 import { getLogger } from '../../lib/logger';
 
@@ -139,7 +139,7 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // 用户登出
-router.post('/logout', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+router.post('/logout', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   const token = req.headers.authorization?.substring(7);
   
@@ -193,7 +193,7 @@ router.post('/refresh-token', asyncHandler(async (req: Request, res: Response) =
 }));
 
 // 获取当前用户信息
-router.get('/profile', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+router.get('/profile', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   
   const response = createSuccessResponse(
@@ -213,7 +213,7 @@ router.get('/profile', authMiddleware, asyncHandler(async (req: Request, res: Re
 }));
 
 // 更新用户资料
-router.put('/profile', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+router.put('/profile', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   
   try {
@@ -283,7 +283,7 @@ router.put('/profile', authMiddleware, asyncHandler(async (req: Request, res: Re
 }));
 
 // 修改密码
-router.put('/change-password', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+router.put('/change-password', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   
   try {
@@ -360,7 +360,7 @@ router.put('/change-password', authMiddleware, asyncHandler(async (req: Request,
 }));
 
 // 获取用户统计信息
-router.get('/stats', authMiddleware, asyncHandler(async (req: Request, res: Response) => {
+router.get('/stats', authMiddleware, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   
   try {
@@ -409,7 +409,7 @@ router.get('/stats', authMiddleware, asyncHandler(async (req: Request, res: Resp
 }));
 
 // 管理员：获取所有用户列表
-router.get('/admin/users', authMiddleware, requireRole([UserRole.ADMIN]), asyncHandler(async (req: Request, res: Response) => {
+router.get('/admin/users', authMiddleware, requireRole([UserRole.ADMIN]), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   const { page = 1, limit = 20, role, status, search } = req.query;
   
@@ -468,7 +468,7 @@ router.get('/admin/users', authMiddleware, requireRole([UserRole.ADMIN]), asyncH
 }));
 
 // 管理员：更新用户状态
-router.put('/admin/users/:id/status', authMiddleware, requireRole([UserRole.ADMIN]), asyncHandler(async (req: Request, res: Response) => {
+router.put('/admin/users/:id/status', authMiddleware, requireRole([UserRole.ADMIN]), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const requestId = generateRequestId();
   const { id } = req.params;
   const { status } = req.body;

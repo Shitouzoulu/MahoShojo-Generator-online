@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { aiGenerationLimiter } from '../middleware/rateLimiter';
-import { optionalAuthMiddleware } from '../middleware/auth';
+import { optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { executeQuery, generateUUID } from '../../lib/database';
 import { generateMagicalGirl } from '../../lib/ai';
 
 const router = Router();
 
 // 生成魔法少女
-router.post('/generate', aiGenerationLimiter, async (req: Request, res: Response) => {
+router.post('/generate', aiGenerationLimiter, optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { flowerName, mainColor, userPreferences } = req.body;
     
@@ -75,7 +75,7 @@ router.post('/generate', aiGenerationLimiter, async (req: Request, res: Response
 });
 
 // 获取魔法少女列表
-router.get('/', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { page = 1, limit = 20, flowerName, search } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
@@ -141,7 +141,7 @@ router.get('/', optionalAuthMiddleware, async (req: Request, res: Response) => {
 });
 
 // 获取单个魔法少女详情
-router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -178,7 +178,7 @@ router.get('/:id', optionalAuthMiddleware, async (req: Request, res: Response) =
 });
 
 // 获取用户收藏的魔法少女
-router.get('/user/favorites', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/user/favorites', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -222,7 +222,7 @@ router.get('/user/favorites', optionalAuthMiddleware, async (req: Request, res: 
 });
 
 // 切换收藏状态
-router.post('/:id/favorite', optionalAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/favorite', optionalAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({
