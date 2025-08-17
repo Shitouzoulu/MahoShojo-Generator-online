@@ -312,21 +312,7 @@ router.post('/regenerate/:taskId', optionalAuthMiddleware, async (req: Authentic
       taskId
     ]);
     
-    // 异步生成立绘
-    const characterData = JSON.parse(originalTask.character_data);
-    generateTachie({
-      taskId: newTaskId,
-      characterData,
-      style: style || originalTask.style,
-      size: size || originalTask.size,
-      userPreferences
-    }).catch(error => {
-      console.error('立绘重新生成失败:', error);
-      executeQuery(
-        'UPDATE tachie_tasks SET status = ?, error_message = ? WHERE id = ?',
-        ['failed', error.message, newTaskId]
-      );
-    });
+    // 异步任务处理由前端或其他服务触发；此处仅创建任务记录
     
     res.status(202).json({
       success: true,
