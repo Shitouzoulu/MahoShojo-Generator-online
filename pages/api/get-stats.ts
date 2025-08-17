@@ -1,11 +1,11 @@
 // pages/api/get-stats.ts
 
-import { type NextRequest } from 'next/server';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { queryFromD1 } from '../../lib/d1';
 import { aiConfig } from '../../lib/ai-config'; // 导入AI配置
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 // 定义API返回的数据结构
@@ -53,13 +53,11 @@ async function executeQuery(sql: string, params: any[] = []): Promise<any[]> {
 // 注释：已将 handler 从 (req: NextApiRequest, res: NextApiResponse) 修改为 (req: NextRequest)
 // 这是为了兼容 Cloudflare Edge Runtime，它使用标准的 Web API Request 和 Response 对象。
 export default async function handler(
-  req: NextRequest
+  req: NextApiRequest,
+  res: NextApiResponse
 ) {
   if (req.method !== 'GET') {
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
@@ -150,16 +148,10 @@ export default async function handler(
       (responseData as any).needsInitialization = true;
     }
 
-    return new Response(JSON.stringify(responseData), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json(responseData);
 
   } catch (error) {
     console.error('获取统计数据失败:', error);
-    return new Response(JSON.stringify({ error: '无法加载统计数据' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ error: '无法加载统计数据' });
   }
 }

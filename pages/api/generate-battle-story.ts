@@ -7,11 +7,12 @@ import { getLogger } from '../../lib/logger';
 import questionnaire from '../../public/questionnaire.json';
 import { getRandomJournalist } from '../../lib/random-choose-journalist';
 import { aiConfig } from '../../lib/ai-config';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const log = getLogger('api-gen-battle-story');
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 // 新增：用于AI安全检查的Schema
@@ -430,16 +431,13 @@ async function updateBattleStats(winnerName: string, participants: any[]) {
   }
 }
 
-async function handler(req: Request): Promise<Response> {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { combatants, selectedLevel, mode, userGuidance } = await req.json();
+    const { combatants, selectedLevel, mode, userGuidance } = req.body || {};
 
     // --- 根据模式动态调整人数限制 ---
     const minParticipants = mode === 'daily' ? 1 : 2;
@@ -452,10 +450,7 @@ async function handler(req: Request): Promise<Response> {
         ? `日常模式需要 ${minParticipants} 到 ${maxParticipants} 位角色`
         : `该模式需要 ${minParticipants} 到 ${maxParticipants} 位角色`;
         
-      return new Response(JSON.stringify({ error: errorMessage }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return res.status(400).json({ error: errorMessage });
     }
 
     let finalUserGuidance = userGuidance?.trim() || '';
@@ -476,9 +471,7 @@ async function handler(req: Request): Promise<Response> {
 
           if (safetyResult.isUnsafe) {
               log.warn('检测到不安全的用户引导内容，请求被拒绝', { guidance: finalUserGuidance });
-              return new Response(JSON.stringify({ error: '输入内容不合规', shouldRedirect: true }), {
-                  status: 400, headers: { 'Content-Type': 'application/json' }
-              });
+              return res.status(400).json({ error: '输入内容不合规', shouldRedirect: true });
           }
       } catch (err) {
           log.error('安全检查AI调用失败', { error: err });
@@ -560,17 +553,9 @@ async function handler(req: Request): Promise<Response> {
 
     // 异步更新数据库，不阻塞对用户的响应
     const updatePromise = updateBattleStats(fullReport.officialReport.winner, combatants);
-    const executionContext = (req as any).context;
-    if (executionContext && typeof executionContext.waitUntil === 'function') {
-      executionContext.waitUntil(updatePromise);
-    } else {
-      updatePromise.catch(err => log.error('更新战斗统计失败（非阻塞）', err));
-    }
+    updatePromise.catch(err => log.error('更新战斗统计失败（非阻塞）', err));
 
-    return new Response(JSON.stringify(fullReport), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json(fullReport);
   } catch (error) {
     // --- 增强日志记录 ---
     const errorMessage = error instanceof Error ? error.message : '未知错误';
@@ -581,10 +566,7 @@ async function handler(req: Request): Promise<Response> {
         errorMessage: errorMessage
     });
 
-    return new Response(JSON.stringify({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage });
   }
 }
 

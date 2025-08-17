@@ -3,12 +3,12 @@ import { z } from 'zod';
 import { generateWithAI, GenerationConfig } from '../../lib/ai';
 import { getLogger } from '../../lib/logger';
 import { quickCheck } from '@/lib/sensitive-word-filter';
-import { NextRequest } from 'next/server';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const log = getLogger('api-gen-canshou');
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 // 残兽设定，硬编码以兼容Edge Runtime
@@ -89,22 +89,16 @@ const canshouGenerationConfig: GenerationConfig<CanshouDetails, Record<string, s
 };
 
 // API Handler
-async function handler(req: NextRequest): Promise<Response> {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { answers } = await req.json();
+    const { answers } = req.body || {};
 
     if (!answers || typeof answers !== 'object' || Object.keys(answers).length === 0) {
-      return new Response(JSON.stringify({ error: 'Answers object is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return res.status(400).json({ error: 'Answers object is required' });
     }
 
     // 安全检查：检查用户输入是否包含敏感词
@@ -113,27 +107,17 @@ async function handler(req: NextRequest): Promise<Response> {
     if (checkResult.hasSensitiveWords) {
       // 在服务器端记录日志，然后返回一个通用错误给前端，前端将处理跳转
       log.warn('检测到敏感词，请求被拒绝', { detected: checkResult.detectedWords });
-      return new Response(JSON.stringify({ error: '输入内容不合规', shouldRedirect: true }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return res.status(400).json({ error: '输入内容不合规', shouldRedirect: true });
     }
 
     // 调用通用AI生成函数
     const canshouDetails = await generateWithAI(answers, canshouGenerationConfig);
-
-    return new Response(JSON.stringify(canshouDetails), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(200).json(canshouDetails);
 
   } catch (error) {
     log.error('生成残兽档案失败', { error });
     const errorMessage = error instanceof Error ? error.message : '服务器内部错误';
-    return new Response(JSON.stringify({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(500).json({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage });
   }
 }
 

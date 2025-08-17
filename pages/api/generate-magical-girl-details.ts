@@ -4,11 +4,12 @@ import { z } from 'zod';
 import { getRandomFlowers } from '../../lib/random-choose-hana-name';
 // import { saveToD1 } from '../../lib/d1';
 import { getLogger } from '../../lib/logger';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const log = getLogger('api-gen-details');
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 // 定义基于问卷的魔法少女详细信息生成 schema
@@ -103,70 +104,36 @@ const magicalGirlDetailsConfig: GenerationConfig<MagicalGirlDetails, string[]> =
 // 导致功能失效并错误地拦截了前端的轮询请求。
 // 现在，请求将直接、异步地调用AI生成函数。
 async function handler(
-  req: Request
-): Promise<Response> {
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { answers } = await req.json();
+  const { answers } = req.body || {};
 
   if (!answers || !Array.isArray(answers) || answers.length === 0) {
-    return new Response(JSON.stringify({ error: 'Answers array is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(400).json({ error: 'Answers array is required' });
   }
 
   // 验证每个答案不超过120字
   for (const answer of answers) {
     if (typeof answer !== 'string' || answer.trim().length === 0) {
-      return new Response(JSON.stringify({ error: 'All answers must be non-empty strings' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return res.status(400).json({ error: 'All answers must be non-empty strings' });
     }
     if (answer.length > 120) {
-      return new Response(JSON.stringify({ error: 'Each answer must not exceed 120 characters' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return res.status(400).json({ error: 'Each answer must not exceed 120 characters' });
     }
   }
 
   try {
-    // 直接调用AI生成，不再入队
     const magicalGirlDetails = await generateWithAI(answers, magicalGirlDetailsConfig);
-
-    // 异步保存到D1数据库，不阻塞对用户的响应
-    // const saveData = {
-    //   ...magicalGirlDetails,
-    //   answers: answers
-    // };
-
-    // // 在Edge环境中，可以使用executionContext.waitUntil来确保异步任务完成
-    // const executionContext = (req as any).context;
-    // if (executionContext && typeof executionContext.waitUntil === 'function') {
-    //   executionContext.waitUntil(saveToD1(saveData));
-    // } else {
-    //   // 在非Edge环境中，直接调用（不等待完成）
-    //   saveToD1(saveData).catch(err => log.error('保存到D1失败（非阻塞）', err));
-    // }
-
-    return new Response(JSON.stringify(magicalGirlDetails), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json(magicalGirlDetails);
   } catch (error) {
-    log.error('生成魔法少女详细信息失败', { error, answersLength: answers?.length });
+    log.error('生成魔法少女详细信息失败', { error, answersLength: (answers as any)?.length });
     const errorMessage = error instanceof Error ? error.message : '服务器内部错误';
-    return new Response(JSON.stringify({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage });
   }
 }
 

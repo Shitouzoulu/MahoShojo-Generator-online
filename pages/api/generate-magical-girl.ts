@@ -3,11 +3,12 @@ import { generateWithAI, GenerationConfig } from "../../lib/ai";
 import { aiConfig } from "../../lib/ai-config";
 import { MainColor } from "../../lib/main-color";
 import { getLogger } from "../../lib/logger";
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 const log = getLogger('api-gen-girl');
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 };
 
 export type MainColor = (typeof MainColor)[keyof typeof MainColor];
@@ -66,39 +67,26 @@ export async function generateMagicalGirlWithAI(
 // 现在，请求将直接、异步地调用AI生成函数。
 // 并发和负载管理将由 `ai.ts` 中更强大的多提供商故障转移和重试逻辑来处理。
 async function handler(
-  req: Request
-): Promise<Response> {
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { name } = await req.json();
+  const { name } = req.body || {};
 
   if (!name || typeof name !== 'string') {
-    return new Response(JSON.stringify({ error: 'Name is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(400).json({ error: 'Name is required' });
   }
 
   try {
-    // 直接调用AI生成，不再入队
-    const magicalGirl = await generateMagicalGirlWithAI(name.trim());
-
-    return new Response(JSON.stringify(magicalGirl), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const magicalGirl = await generateMagicalGirlWithAI(String(name).trim());
+    return res.status(200).json(magicalGirl);
   } catch (error) {
     log.error('生成魔法少女失败', { error, name });
     const errorMessage = error instanceof Error ? error.message : '服务器内部错误';
-    return new Response(JSON.stringify({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ error: '生成失败，当前服务器可能正忙，请稍后重试', message: errorMessage });
   }
 }
 
