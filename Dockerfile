@@ -28,7 +28,6 @@ COPY . .
 
 # 构建应用
 RUN npm run build
-RUN npm run build:server
 
 # 生产阶段
 FROM base AS production
@@ -40,7 +39,6 @@ RUN adduser -S nextjs -u 1001
 # 复制构建产物
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # 创建必要的目录
@@ -55,7 +53,7 @@ EXPOSE 3000
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:3000/ || exit 1
 
 # 使用dumb-init启动应用
 ENTRYPOINT ["dumb-init", "--"]
