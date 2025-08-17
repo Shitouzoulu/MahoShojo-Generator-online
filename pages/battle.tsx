@@ -7,7 +7,7 @@ import { useCooldown } from '../lib/cooldown';
 import { quickCheck } from '@/lib/sensitive-word-filter';
 import BattleReportCard, { NewsReport } from '../components/BattleReportCard';
 import Link from 'next/link';
-import { Preset } from './api/get-presets'; // 统一使用 Preset 类型
+import { Preset } from '@/types/preset'; // 统一使用 Preset 类型
 import { StatsData } from './api/get-stats';
 import Leaderboard from '../components/Leaderboard';
 import { aiConfig } from '../lib/ai-config';
@@ -116,8 +116,8 @@ const BattlePage: React.FC = () => {
                 // 根据配置决定是否需要获取统计数据
                 const shouldFetchStats = aiConfig.SHOW_STAT_DATA;
 
-                // 构建请求数组
-                const requests = [fetch('/api/get-presets')];
+                // 构建请求数组（静态导出环境使用 public 下的静态清单）
+                const requests = [fetch('/presets/index.json')];
                 if (shouldFetchStats) {
                     requests.push(fetch('/api/get-stats'));
                 }

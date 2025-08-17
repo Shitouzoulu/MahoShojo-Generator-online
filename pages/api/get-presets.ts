@@ -1,18 +1,13 @@
 // pages/api/get-presets.ts
 
 import { NextRequest } from 'next/server';
+import type { Preset } from '../../types/preset';
 
 export const config = {
   runtime: 'edge',
 };
 
-// 定义预设角色的数据结构 - 增加 type 字段
-export interface Preset {
-  name: string;
-  description: string;
-  filename: string;
-  type: 'magical-girl' | 'canshou'; // 新增类型字段
-}
+// 复用共享类型
 
 // 预设列表 - 在 Edge Runtime 中无法读取文件系统，因此在此处直接定义
 // 注释：Edge Runtime 环境没有 NodeJS 的文件系统（fs）模块，无法在运行时动态读取目录。
