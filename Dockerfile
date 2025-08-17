@@ -1,5 +1,9 @@
 # 多阶段构建Dockerfile - 阿里云ECS部署优化
-FROM node:18-alpine AS base
+FROM m.daocloud.io/docker.io/library/node:18-alpine AS base
+
+# 使用国内镜像加速 Alpine 软件源
+ARG ALPINE_MIRROR=mirrors.aliyun.com
+RUN sed -i -e "s/dl-cdn.alpinelinux.org/${ALPINE_MIRROR}/g" /etc/apk/repositories
 
 # 安装必要的系统依赖
 RUN apk add --no-cache \
@@ -15,6 +19,7 @@ COPY package*.json ./
 COPY bun.lock ./
 
 # 安装依赖
+ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 RUN npm ci --only=production && npm cache clean --force
 
 # 构建阶段
