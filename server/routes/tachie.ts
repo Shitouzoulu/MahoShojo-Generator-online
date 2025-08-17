@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { aiGenerationLimiter } from '../middleware/rateLimiter';
 import { optionalAuthMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { executeQuery, generateUUID } from '../../lib/database';
-import { generateTachie } from '../../lib/tachie/manager';
 
 const router = Router();
 
@@ -63,21 +62,7 @@ router.post('/generate', aiGenerationLimiter, optionalAuthMiddleware, async (req
       req.user?.id || null
     ]);
 
-    // 异步生成立绘
-    generateTachie({
-      taskId,
-      characterData,
-      style,
-      size: size || 'medium',
-      userPreferences
-    }).catch(error => {
-      console.error('立绘生成失败:', error);
-      // 更新任务状态为失败
-      executeQuery(
-        'UPDATE tachie_tasks SET status = ?, error_message = ? WHERE id = ?',
-        ['failed', error.message, taskId]
-      );
-    });
+    // 异步任务处理由前端或其他服务触发；此处仅创建任务记录
 
     res.status(202).json({
       success: true,
